@@ -122,12 +122,17 @@ export default function App() {
     setAddProblemVisible(false);
   };
 
+  //doing this made me realize i can go for like a cooking pot idea of making the perfect soup as the goal at the end!!
   //calculate the cooked level under pot
   const getCookedLevel = () => {
     const percentage = (userData.problemsSolved / userData.targetGoal) * 100;
-    if (percentage < 30) return 'HIGH';
-    if (percentage < 70) return 'MEDIUM';
-    return 'LOW - YOU ARE COOKIN';
+    if (userData.targetGoal == 0) return 'BURNT - Fix it!'
+    if (percentage < 30) return 'CHARRED - Good Start!';
+    if (percentage < 50) return 'OVERDONE - Getting on Track!';
+    if (percentage < 70) return 'COOKED - Looking Better!';
+    if (percentage < 90) return 'GLAZED - Absolutely Insane!';
+    if (percentage < 100) return 'NAHH YOU ARE COOKIN!!!';
+    return 'THE CHEF THAT COOKED';
   };
 
   //date formating

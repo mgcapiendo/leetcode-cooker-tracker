@@ -7,10 +7,15 @@ import Svg, { Path, Circle, Text as SvgText } from 'react-native-svg';
 
 //this is the arc which is a semicircle
 const SemicircleProgress = ({ current, target, height = 130 }) => { //defines the problems completed, goal number, height of the componenet
+  // Add validation for current and target
+  const validCurrent = isNaN(current) ? 0 : current;
+  const validTarget = isNaN(target) || target === 0 ? 100 : target;
+  
   const radius = height - 30;  //adjusts the size of radius minus some space so it doesnt clip the labels
   const width = radius * 2 + 80; //the width for the component with room for labels
   
-  const percentage = current / target; //calculate the amou
+  // Ensure percentage is valid and bounded between 0 and 1
+  const percentage = Math.min(Math.max(validCurrent / validTarget, 0), 1); //calculate the amount
   
   const topPadding = 20; //prevents clipping and pushes it down
   const svgHeight = height + topPadding + 40; //prevents clipping with recntly solved problms with bottom 
@@ -54,7 +59,7 @@ const SemicircleProgress = ({ current, target, height = 130 }) => { //defines th
     }
     
     //calcualte the value for marker
-    const labelValue = Math.round((i / markerCount) * target);
+    const labelValue = Math.round((i / markerCount) * validTarget);
     
     //creates and adds the labels to each marker
     markers.push(
@@ -72,29 +77,44 @@ const SemicircleProgress = ({ current, target, height = 130 }) => { //defines th
     );
   }
 
+  //create the full semicircle path with validation
+  const createFullPath = () => {
+    //all values valid numbers
+    const validHeight = height + topPadding;
+    const validWidth = width - 40;
+    
+    if (isNaN(validHeight) || isNaN(radius) || isNaN(validWidth)) {
+      console.error('Invalid dimensions in createFullPath:', { height, topPadding, radius, width });
+      return 'M 0 0'; //returns empty path if invalid
+    }
+    
+    return `M 40 ${validHeight} A ${radius} ${radius} 0 0 1 ${validWidth} ${validHeight}`;
+  };
 
-//create the full semicircle path
-const createFullPath = () => 
-  `M 40 ${height + topPadding} A ${radius} ${radius} 0 0 1 ${width - 40} ${height + topPadding}`;
-
-//create the partial progress path
-const createPartialPath = () => {
-  //returns the full path if progress is complete
-  if (percentage >= 1) return createFullPath();
-  
-  //calcualte where the progress bar ends dispaly
-  const angle = Math.PI * percentage;
-  const endX = radius + 40 - Math.cos(angle) * radius;
-  const endY = height + topPadding - Math.sin(angle) * radius;
-  
-  //return the path arc now
-  return `M 40 ${height + topPadding} A ${radius} ${radius} 0 ${percentage > 0.5 ? 1 : 0} 1 ${endX} ${endY}`;
-};
+  //create the partial progress path with validation
+  const createPartialPath = () => {
+    //returns the full path if progress is complete
+    if (percentage >= 1) return createFullPath();
+    
+    //calcualte where the progress bar ends display
+    const angle = Math.PI * percentage;
+    const endX = radius + 40 - Math.cos(angle) * radius;
+    const endY = height + topPadding - Math.sin(angle) * radius;
+    
+    //validate correct end coordinates
+    if (isNaN(endX) || isNaN(endY)) {
+      console.error('Invalid coordinates in createPartialPath:', { endX, endY, angle, radius });
+      return createFullPath(); // Fallback to full path if calculation fails
+    }
+    
+    //return the path arc now
+    return `M 40 ${height + topPadding} A ${radius} ${radius} 0 ${percentage > 0.5 ? 1 : 0} 1 ${endX} ${endY}`;
+  };
 
   return (
     <View style={styles.container}>
       <Svg height={svgHeight} width={width} viewBox={`0 0 ${width} ${svgHeight}`}>
-
+        {/*full bar */}
         <Path
           d={createFullPath()}
           stroke="#E0E0E0"
@@ -103,6 +123,7 @@ const createPartialPath = () => {
           fill="transparent"
         />
         
+        {/*progress bar */}
         <Path
           d={createPartialPath()}
           stroke="#4CAF50"
@@ -111,8 +132,10 @@ const createPartialPath = () => {
           fill="transparent"
         />
         
+        {/*render markers and their labels */}
         {markers}
         
+        {/*current num*/}
         <SvgText
           x="15"
           y={height + topPadding + 35}
@@ -120,9 +143,10 @@ const createPartialPath = () => {
           fontWeight="bold"
           fill="#FF9800"
         >
-          {current}
+          {validCurrent}
         </SvgText>
         
+        {/*goal num*/}
         <SvgText
           x={width - 15}
           y={height + topPadding + 35} 
@@ -131,7 +155,7 @@ const createPartialPath = () => {
           textAnchor="end"
           fill="#4CAF50"
         >
-          {target}
+          {validTarget}
         </SvgText>
       </Svg>
     </View>
