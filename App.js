@@ -9,22 +9,20 @@ import SettingsModal from './components/SettingsModal';
 import AddProblemModal from './components/AddProblemModal';
 import WelcomeModal from './components/WelcomeModal';
 
-
 export default function App() {
-  //controls the visibility for everything so it doesnt pop up before use
+  //states for modal visibility
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [addProblemVisible, setAddProblemVisible] = useState(false);
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
   
-  //user inputs
+  //the user data
   const [userData, setUserData] = useState({
     problemsSolved: 0,
-    targetGoal: 0,
-    dailyGoal: 0,
+    targetGoal: 100,
+    dailyGoal: 1,
     dailySolved: 0,
-    difficulty: 
-    {
+    difficulty: {
       easy: 0,
       medium: 0,
       hard: 0,
@@ -32,53 +30,76 @@ export default function App() {
     recentlySolved: []
   });
 
-  //loads all the user saved data
+  //load initial data when app starts
   useEffect(() => {
-    const loadData = async () => {
+    const loadInitialData = async () => {
       try {
+        //THIS IS FOR A RESET
+        //await AsyncStorage.clear();
+        //await AsyncStorage.removeItem('hasLaunchedBefore');
+        //console.log('DATA RESET!!!');
+        
         const hasLaunched = await AsyncStorage.getItem('hasLaunchedBefore');
         
-        if (!hasLaunched) { //if this is first launch then show welcome scren
+        if (!hasLaunched) {
           setIsFirstLaunch(true);
           setWelcomeVisible(true);
           await AsyncStorage.setItem('hasLaunchedBefore', 'true');
         } else {
-          const savedData = await AsyncStorage.getItem('leetcodeTrackerData'); //if not first launch then load data
-          if (savedData) {
-            setUserData(JSON.parse(savedData));
+          //check if data exists for loading
+          const savedDataString = await AsyncStorage.getItem('leetcodeTrackerData');
+          
+          if (savedDataString) {
+            try {
+              const parsedData = JSON.parse(savedDataString);
+              console.log('LOADED SAVED DATA:', parsedData);
+              
+              //update data
+              setUserData(currentData => ({
+                ...currentData,
+                ...parsedData
+              }));
+            } catch (parseError) {
+              console.error('ERROR PARSING SAVED DATA', parseError);
+            }
           } else {
-            setSettingsVisible(true); //if no data on normal launch display goal setting
+            console.log('NO SAVED DATA');
+            setSettingsVisible(true);
           }
         }
       } catch (error) {
-        console.error('Error loading data:', error); //incase somethign happens with data loading just alert
+        console.error('ERROR LOADING DATA', error);
       }
     };
-    //call it
-    loadData();
+
+    loadInitialData();
   }, []);
 
-  //runs after change in data setting
+  //save data at any change
   useEffect(() => {
-    saveData();
+    const saveData = async () => {
+      try {
+        console.log('SAVING DATA', userData);
+        await AsyncStorage.setItem('leetcodeTrackerData', JSON.stringify(userData));
+        console.log('DATA SAVED');
+      } catch (error) {
+        console.error('ERROR SAVING DATA', error);
+      }
+    };
+
+    //only saves if the data has content
+    if (userData.problemsSolved > 0 || userData.recentlySolved.length > 0) {
+      saveData();
+    }
   }, [userData]);
 
-  //save to asyncstorage
-  const saveData = async () => {
-    try {
-      await AsyncStorage.setItem('leetcodeTrackerData', JSON.stringify(userData)); //convert to json then saves
-    } catch (error) {
-      console.error('Error saving data:', error); //if it doesnt go through alert
-    }
-  };
-
-  //run for finishing welcome
+  //handling welcome screen completion
   const handleWelcomeComplete = () => {
     setWelcomeVisible(false);
     setSettingsVisible(true);
   };
 
-  //update problem goals settings
+  //updates problem goals settings
   const updateSettings = (newSettings) => {
     setUserData(prevData => ({
       ...prevData,
@@ -94,7 +115,6 @@ export default function App() {
       ? Math.max(...userData.recentlySolved.map(p => p.id)) + 1 
       : 1;
     
-    //take the input data and create the new problem
     const newProblem = {
       id: newId,
       title: problem.title,
@@ -102,15 +122,12 @@ export default function App() {
       date: problem.date
     };
     
-    //take the input difficulity
     const newDifficulty = { ...userData.difficulty };
     newDifficulty[problem.difficulty.toLowerCase()]++;
     
-    //check if daily requirement was met from upload
     const today = new Date().toISOString().split('T')[0];
     const dailySolvedIncrement = problem.date === today ? 1 : 0;
     
-    //update data
     setUserData(prevData => ({
       ...prevData,
       problemsSolved: prevData.problemsSolved + 1,
@@ -122,11 +139,10 @@ export default function App() {
     setAddProblemVisible(false);
   };
 
-  //doing this made me realize i can go for like a cooking pot idea of making the perfect soup as the goal at the end!!
-  //calculate the cooked level under pot
+  //calculates the cooked level based on problems solved
   const getCookedLevel = () => {
     const percentage = (userData.problemsSolved / userData.targetGoal) * 100;
-    if (userData.targetGoal == 0) return 'BURNT - Fix it!'
+    if (userData.problemsSolved < 10) return 'BURNT - Fix it!'
     if (percentage < 30) return 'CHARRED - Good Start!';
     if (percentage < 50) return 'OVERDONE - Getting on Track!';
     if (percentage < 70) return 'COOKED - Looking Better!';
@@ -135,14 +151,14 @@ export default function App() {
     return 'THE CHEF THAT COOKED';
   };
 
-  //date formating
+  //gets todays date
   const getTodayDate = () => {
     const today = new Date();
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return today.toLocaleDateString('en-US', options);
   };
 
-  //render the problems
+  //renders the problem item
   const renderProblemItem = (problem, index) => {
     const difficultyColor = {
       'Easy': 'green',
@@ -161,12 +177,13 @@ export default function App() {
     );
   };
 
+  //render empty state when no problems are solved
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <Feather name="code" size={40} color="#ccc" />
-      <Text style={styles.emptyStateText}>No problems solved yet</Text>
+      <Text style={styles.emptyStateText}>You need to start COOKIN!</Text>
       <Text style={styles.emptyStateSubtext}>
-        Tap the + button to add your first solved LeetCode problem
+        Tap the + button to add your first problem solved
       </Text>
       <TouchableOpacity 
         style={styles.emptyStateButton}
